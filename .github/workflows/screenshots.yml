@@ -1,0 +1,74 @@
+name: Desktop Screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Single URL (leave empty to use screenshot-tool/list.txt)'
+        required: false
+        default: ''
+      name:
+        description: 'File name for the single URL (e.g. my-project)'
+        required: false
+        default: ''
+      full_page:
+        description: 'Capture the full page instead of just the top screen'
+        type: boolean
+        default: false
+      scale:
+        description: 'Sharpness (2 = retina, bigger file)'
+        type: choice
+        options: ['1', '2']
+        default: '1'
+
+permissions:
+  contents: write
+
+jobs:
+  shoot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        working-directory: screenshot-tool
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Take screenshots
+        working-directory: screenshot-tool
+        env:
+          ONE_URL: ${{ inputs.url }}
+          ONE_NAME: ${{ inputs.name }}
+          FULL_PAGE: ${{ inputs.full_page }}
+          SCALE: ${{ inputs.scale }}
+          OUT_DIR: ../public/previews
+          WIDTH: '1440'
+          HEIGHT: '900'
+        run: node screenshot.mjs
+
+      - name: Save as downloadable artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-screenshots
+          path: public/previews/
+          if-no-files-found: ignore
+
+      - name: Commit screenshots
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/previews
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update desktop preview screenshots"
+            git push || (git pull --rebase && git push)
+          fi
