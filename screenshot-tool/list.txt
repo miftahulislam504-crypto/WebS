@@ -1,0 +1,3 @@
+# One project per line:  file-name  url
+# The screenshot is saved as public/previews/<file-name>.png
+melvora-bd https://melvora-bd.miftahulislam504.workers.dev
