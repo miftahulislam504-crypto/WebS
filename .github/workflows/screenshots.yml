@@ -25,6 +25,15 @@ on:
         description: 'Capture the full page instead of just the top screen'
         type: boolean
         default: false
+      crawl:
+        description: 'Whole site: follow links and capture every page found'
+        type: boolean
+        default: false
+      max_pages:
+        description: 'Whole site: most pages to capture per site'
+        type: choice
+        options: ['5', '10', '20', '40']
+        default: '10'
 
 permissions:
   contents: write
@@ -37,7 +46,7 @@ concurrency:
 jobs:
   shoot:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -73,7 +82,10 @@ jobs:
           WIDTH: ${{ inputs.width }}
           SCALE: ${{ inputs.scale }}
           FULL_PAGE: ${{ inputs.full_page }}
+          CRAWL: ${{ inputs.crawl }}
+          MAX_PAGES: ${{ inputs.max_pages }}
           OUT_ROOT: ../out/jobs
+          SITE_LOGINS: ${{ secrets.SITE_LOGINS }}
         run: node screenshot.mjs
 
       - name: Publish to the screenshots branch
@@ -81,12 +93,17 @@ jobs:
           JOB_ID: ${{ inputs.job_id }}
         run: |
           cd out
-          # keep only the newest 30 jobs
+          # keep at most 30 jobs and about 300 MB, oldest first out
           if [ -d jobs ]; then
             ls -1 jobs | sort | head -n -30 | xargs -r -I{} rm -rf "jobs/{}"
+            while [ "$(du -sm jobs | cut -f1)" -gt 300 ] && [ "$(ls -1 jobs | wc -l)" -gt 1 ]; do
+              rm -rf "jobs/$(ls -1 jobs | sort | head -n 1)"
+            done
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # one fresh commit each time, so old images do not pile up in the history
+          git symbolic-ref HEAD refs/heads/publish
           git add -A
           git commit -m "Screenshots $JOB_ID"
-          git push origin screenshots || (git pull --rebase origin screenshots && git push origin screenshots)
+          git push -f origin publish:screenshots

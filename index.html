@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Screenshots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fff;
+  --fg: #000;
+  --mute: #6b6b6b;
+  --line: #dcdcdc;
+  --soft: #f3f3f3;
+  --font: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Bengali", sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #000; --fg: #fff; --mute: #9a9a9a; --line: #2b2b2b; --soft: #121212; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 16px/1.5 var(--font);
+  padding:
+    max(20px, env(safe-area-inset-top))
+    max(20px, env(safe-area-inset-right))
+    max(48px, env(safe-area-inset-bottom))
+    max(20px, env(safe-area-inset-left));
+}
+main { max-width: 680px; margin: 0 auto; }
+header { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 28px; }
+h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
+a { color: inherit; text-underline-offset: 3px; }
+section { margin-bottom: 36px; }
+
+label.lbl, .lg { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+.hint { color: var(--mute); font-size: 14px; margin: 8px 0 0; }
+
+textarea, input[type="text"], input[type="password"] {
+  width: 100%;
+  font: 400 16px/1.5 var(--font);
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 11px 12px;
+  outline: none;
+}
+textarea { min-height: 132px; resize: vertical; border-color: var(--fg); }
+textarea:focus, input:focus { outline: 2px solid var(--fg); outline-offset: 2px; }
+::placeholder { color: var(--mute); opacity: 1; }
+
+.options { display: flex; flex-wrap: wrap; gap: 20px 28px; margin: 22px 0 24px; align-items: flex-end; }
+.seg { border: 0; padding: 0; margin: 0; min-width: 0; }
+.seg legend { padding: 0; }
+.opts { position: relative; display: inline-flex; border: 1px solid var(--fg); border-radius: 999px; overflow: hidden; }
+.opts input { position: absolute; opacity: 0; pointer-events: none; }
+.opts label { display: block; padding: 8px 15px; font-size: 14px; cursor: pointer; user-select: none; }
+.opts input:checked + label { background: var(--fg); color: var(--bg); }
+.opts input:focus-visible + label { outline: 2px solid var(--fg); outline-offset: -4px; }
+
+.switch { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; height: 38px; }
+.switch input {
+  appearance: none; -webkit-appearance: none; margin: 0;
+  width: 44px; height: 26px; border: 1px solid var(--fg); border-radius: 999px;
+  position: relative; cursor: pointer; transition: background .18s;
+}
+.switch input::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--fg); transition: transform .18s, background .18s;
+}
+.switch input:checked { background: var(--fg); }
+.switch input:checked::after { background: var(--bg); transform: translateX(18px); }
+.switch input:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
+.btn, .btn-line {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: 500 16px/1 var(--font); border-radius: 999px; cursor: pointer;
+  height: 48px; padding: 0 22px; border: 1px solid var(--fg);
+}
+.btn { background: var(--fg); color: var(--bg); width: 100%; }
+.btn-line { background: transparent; color: var(--fg); height: 40px; padding: 0 16px; font-size: 14px; white-space: nowrap; }
+.btn:hover, .btn-line:hover { opacity: .8; }
+.btn:focus-visible, .btn-line:focus-visible, .icon-btn:focus-visible, .thumb:focus-visible, .hist button:focus-visible {
+  outline: 2px solid var(--fg); outline-offset: 3px;
+}
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+.icon-btn { background: none; border: 0; color: var(--fg); width: 44px; height: 44px; margin-right: -10px; cursor: pointer; display: grid; place-items: center; border-radius: 50%; }
+
+#settings { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 22px 0 24px; }
+#settings label.lbl { margin-top: 16px; }
+#settings h2 { margin-bottom: 4px; }
+#settings details { margin-top: 16px; }
+#settings summary { cursor: pointer; font-size: 14px; font-weight: 500; }
+#settings .go { margin-top: 20px; }
+
+#status { border-left: 3px solid var(--fg); padding: 2px 0 2px 14px; }
+#status p { margin: 0; font-weight: 500; }
+#status .sub { color: var(--mute); font-weight: 400; font-size: 14px; margin-top: 2px; }
+.bar { height: 2px; background: var(--line); position: relative; overflow: hidden; margin-top: 12px; }
+.bar::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 30%; background: var(--fg); transform: translateX(-100%); }
+#status.busy .bar::after { animation: sweep 1.3s cubic-bezier(.6, 0, .4, 1) infinite; }
+#status.done .bar::after { width: 100%; transform: none; }
+#status.error .bar { display: none; }
+#status.error p { font-weight: 700; }
+@keyframes sweep { to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) {
+  #status.busy .bar::after { animation: none; transform: none; width: 40%; }
+  .switch input, .switch input::after { transition: none; }
+}
+
+.results-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.shot { margin: 0 0 30px; }
+.thumb {
+  display: block; width: 100%; padding: 0; aspect-ratio: 16 / 10; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--soft); cursor: zoom-in;
+}
+.thumb img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.cap { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 12px; }
+.cap .t { min-width: 0; }
+.cap .n { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap .m { color: var(--mute); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fail { border-left: 3px solid var(--fg); padding: 2px 0 2px 14px; }
+.fail .n { font-weight: 700; overflow-wrap: anywhere; }
+.fail .m { color: var(--mute); font-size: 14px; overflow-wrap: anywhere; }
+
+.hist { list-style: none; margin: 14px 0 0; padding: 0; }
+.hist li { border-top: 1px solid var(--line); }
+.hist li:last-child { border-bottom: 1px solid var(--line); }
+.hist button { width: 100%; background: none; border: 0; color: var(--fg); font: 400 16px/1.5 var(--font); text-align: left; padding: 14px 2px; cursor: pointer; }
+.hist button:hover { opacity: .65; }
+
+dialog { border: 0; padding: 0; background: var(--bg); color: var(--fg); }
+dialog[open] { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; overflow: auto; }
+dialog::backdrop { background: rgba(0, 0, 0, .6); }
+.vbar { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.vbar span { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+dialog img { display: block; width: 100%; max-width: 1920px; margin: 0 auto; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Screenshots</h1>
+    <button class="icon-btn" id="gear" aria-label="Settings" aria-expanded="false">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+    </button>
+  </header>
+
+  <section id="settings" hidden>
+    <h2>Connect GitHub</h2>
+    <label class="lbl" for="s-repo">Repository</label>
+    <input type="text" id="s-repo" placeholder="owner/repository" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label class="lbl" for="s-token">Access token</label>
+    <input type="password" id="s-token" placeholder="github_pat_..." autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p class="hint">Create a fine-grained token for this repository only, with Actions set to read and write and Contents set to read. It is saved in this browser and nowhere else. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a token</a></p>
+    <details>
+      <summary>Advanced</summary>
+      <label class="lbl" for="s-workflow">Workflow file</label>
+      <input type="text" id="s-workflow" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label class="lbl" for="s-ref">Workflow branch</label>
+      <input type="text" id="s-ref" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label class="lbl" for="s-branch">Images branch</label>
+      <input type="text" id="s-branch" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </details>
+    <div class="go"><button class="btn" id="saveSettings">Save and test</button></div>
+    <p class="hint" id="settingsMsg" role="status"></p>
+  </section>
+
+  <section id="capture">
+    <label class="lbl" for="links">Links</label>
+    <textarea id="links" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="https://example.com&#10;home https://another-site.com"></textarea>
+    <p class="hint">One link per line. Put a name before a link to choose its file name. With Whole site, one link per site is enough.</p>
+    <div class="options">
+      <fieldset class="seg">
+        <legend class="lg">Pages</legend>
+        <div class="opts">
+          <input type="radio" name="crawl" id="c0" value="false" checked><label for="c0">This link</label>
+          <input type="radio" name="crawl" id="c1" value="true"><label for="c1">Whole site</label>
+        </div>
+      </fieldset>
+      <fieldset class="seg" id="crawlMore" hidden>
+        <legend class="lg">Up to</legend>
+        <div class="opts">
+          <input type="radio" name="maxpages" id="m10" value="10" checked><label for="m10">10</label>
+          <input type="radio" name="maxpages" id="m20" value="20"><label for="m20">20</label>
+          <input type="radio" name="maxpages" id="m40" value="40"><label for="m40">40</label>
+        </div>
+      </fieldset>
+      <p class="hint" id="crawlHint" hidden style="flex-basis:100%;margin:0">Follows the links on the site and takes one screenshot of every page it finds. Pages that only open from buttons cannot be found. For signed-in sites, use a demo account. Turning Full page off keeps big sites quick.</p>
+      <fieldset class="seg">
+        <legend class="lg">Width</legend>
+        <div class="opts">
+          <input type="radio" name="width" id="w1280" value="1280"><label for="w1280">1280</label>
+          <input type="radio" name="width" id="w1440" value="1440" checked><label for="w1440">1440</label>
+          <input type="radio" name="width" id="w1920" value="1920"><label for="w1920">1920</label>
+        </div>
+      </fieldset>
+      <fieldset class="seg">
+        <legend class="lg">Sharpness</legend>
+        <div class="opts">
+          <input type="radio" name="scale" id="s1" value="1" checked><label for="s1">1x</label>
+          <input type="radio" name="scale" id="s2" value="2"><label for="s2">2x</label>
+        </div>
+      </fieldset>
+      <div class="seg">
+        <div class="lg">Length</div>
+        <label class="switch"><input type="checkbox" id="full"><span>Full page</span></label>
+      </div>
+    </div>
+    <button class="btn" id="go">Capture</button>
+  </section>
+
+  <section id="status" hidden aria-live="polite">
+    <p id="statusText"></p>
+    <p class="sub" id="statusSub" hidden></p>
+    <div class="bar"></div>
+  </section>
+
+  <section id="results" hidden>
+    <div class="results-head">
+      <h2 id="resultsTitle"></h2>
+      <button class="btn-line" id="zipAll" hidden>Download all</button>
+    </div>
+    <div id="shots"></div>
+  </section>
+
+  <section id="history" hidden>
+    <h2>Recent</h2>
+    <ul class="hist" id="historyList"></ul>
+  </section>
+</main>
+
+<dialog id="viewer">
+  <div class="vbar">
+    <span id="viewerTitle"></span>
+    <button class="btn-line" id="viewerClose">Close</button>
+  </div>
+  <img id="viewerImg" alt="">
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const KEY = 'shotdash.v1';
+  const PENDING = 'shotdash.pending';
+
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} },
+  };
+
+  const cfg = Object.assign(
+    { repo: '', token: '', workflow: 'screenshots.yml', ref: 'main', branch: 'screenshots' },
+    store.get(KEY) || {}
+  );
+
+  let tracking = null;   // job id being polled
+  let shown = [];        // items on screen (hold blobs)
+  let shownJob = '';
+
+  const configured = () => Boolean(cfg.repo && cfg.token);
+
+  // ---- GitHub API ---------------------------------------------------------
+  async function gh(path, opts = {}) {
+    const { raw, ...init } = opts;
+    const headers = {
+      'Accept': raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+    if (cfg.token) headers['Authorization'] = 'Bearer ' + cfg.token;
+    if (init.body) headers['Content-Type'] = 'application/json';
+    return fetch('https://api.github.com' + path, { cache: 'no-store', ...init, headers });
+  }
+
+  function explain(res) {
+    switch (res.status) {
+      case 401: return 'GitHub rejected the token. Update it in settings.';
+      case 403: return 'The token is missing a permission, or GitHub is rate limiting. Check that it has Actions (read and write) and Contents (read).';
+      case 404: return 'Not found. Check the repository name, the workflow file name, and that the token can access this repository.';
+      case 422: return 'GitHub refused the request. Check the workflow branch, and that the workflow file has the dashboard inputs.';
+      default: return 'GitHub returned status ' + res.status + '.';
+    }
+  }
+  const NETWORK = 'Could not reach GitHub. Check your connection and try again.';
+
+  const wf = () => `/repos/${cfg.repo}/actions/workflows/${encodeURIComponent(cfg.workflow)}`;
+  const jobPath = (job, file) =>
+    `/repos/${cfg.repo}/contents/jobs/${job}/${encodeURIComponent(file)}?ref=${encodeURIComponent(cfg.branch)}`;
+
+  // ---- UI helpers ---------------------------------------------------------
+  function setStatus(text, { busy = false, done = false, error = false, sub = '', link = null } = {}) {
+    const box = $('#status');
+    box.hidden = false;
+    box.className = busy ? 'busy' : done ? 'done' : error ? 'error' : '';
+    $('#statusText').textContent = text;
+    const s = $('#statusSub');
+    s.textContent = '';
+    s.hidden = !(sub || link);
+    if (sub) s.append(sub + ' ');
+    if (link) {
+      const a = document.createElement('a');
+      a.href = link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open the run on GitHub';
+      s.append(a);
+    }
+  }
+
+  function lockUI(on) { $('#go').disabled = on; }
+
+  function clearResults() {
+    shown.forEach((i) => i.objectUrl && URL.revokeObjectURL(i.objectUrl));
+    shown = [];
+    shownJob = '';
+    $('#shots').textContent = '';
+    $('#results').hidden = true;
+  }
+
+  function el(tag, props = {}, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else n.setAttribute(k, v);
+    }
+    kids.forEach((c) => c && n.append(c));
+    return n;
+  }
+
+  const fmtBytes = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
+  const shortUrl = (u) => {
+    try {
+      const x = new URL(u);
+      return x.host + (x.pathname === '/' ? '' : x.pathname) + x.search + x.hash;
+    } catch { return u; }
+  };
+
+  function jobLabel(id) {
+    const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/.exec(id);
+    if (!m) return id;
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]));
+    return d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  function newJobId() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}-${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}-${Math.random().toString(36).slice(2, 6)}`;
+  }
+
+  function parseLinks(raw) {
+    const lines = raw.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (!lines.length) return { error: 'Add at least one link.' };
+    if (lines.length > 20) return { error: 'Up to 20 links per run.' };
+    const out = [];
+    for (const line of lines) {
+      const parts = line.split(/\s+/);
+      const link = parts[parts.length - 1];
+      const name = parts.slice(0, -1).join('-').replace(/,/g, '');
+      try {
+        const u = new URL(/^https?:\/\//i.test(link) ? link : 'https://' + link);
+        if (!u.hostname.includes('.') && u.hostname !== 'localhost') throw new Error('host');
+        out.push((name ? name + ' ' : '') + u.href.replace(/,/g, '%2C'));
+      } catch {
+        return { error: `"${line}" is not a valid link.` };
+      }
+    }
+    return { text: out.join('\n'), count: out.length };
+  }
+
+  // ---- file saving + zip --------------------------------------------------
+  function saveBlob(blob, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+
+  const crcTable = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(buf) {
+    let c = 0xffffffff;
+    for (let i = 0; i < buf.length; i++) c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+
+  // Minimal ZIP writer (no compression; PNGs are already compressed)
+  function makeZip(files) {
+    const enc = new TextEncoder();
+    const parts = [];
+    const central = [];
+    let offset = 0;
+    const now = new Date();
+    const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+
+    for (const f of files) {
+      const nameBytes = enc.encode(f.name);
+      const crc = crc32(f.data);
+      const size = f.data.length;
+
+      const loc = new DataView(new ArrayBuffer(30));
+      loc.setUint32(0, 0x04034b50, true);
+      loc.setUint16(4, 20, true);
+      loc.setUint16(6, 0x0800, true);
+      loc.setUint16(8, 0, true);
+      loc.setUint16(10, dosTime, true);
+      loc.setUint16(12, dosDate, true);
+      loc.setUint32(14, crc, true);
+      loc.setUint32(18, size, true);
+      loc.setUint32(22, size, true);
+      loc.setUint16(26, nameBytes.length, true);
+      loc.setUint16(28, 0, true);
+      parts.push(new Uint8Array(loc.buffer), nameBytes, f.data);
+
+      const cen = new DataView(new ArrayBuffer(46));
+      cen.setUint32(0, 0x02014b50, true);
+      cen.setUint16(4, 20, true);
+      cen.setUint16(6, 20, true);
+      cen.setUint16(8, 0x0800, true);
+      cen.setUint16(10, 0, true);
+      cen.setUint16(12, dosTime, true);
+      cen.setUint16(14, dosDate, true);
+      cen.setUint32(16, crc, true);
+      cen.setUint32(20, size, true);
+      cen.setUint32(24, size, true);
+      cen.setUint16(28, nameBytes.length, true);
+      cen.setUint32(42, offset, true);
+      central.push(new Uint8Array(cen.buffer), nameBytes);
+
+      offset += 30 + nameBytes.length + size;
+    }
+
+    const cenSize = central.reduce((a, b) => a + b.length, 0);
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(8, files.length, true);
+    end.setUint16(10, files.length, true);
+    end.setUint32(12, cenSize, true);
+    end.setUint32(16, offset, true);
+    return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: 'application/zip' });
+  }
+
+  async function downloadAll() {
+    const ok = shown.filter((i) => i.ok && i.blob);
+    if (!ok.length) return;
+    const files = [];
+    for (const i of ok) files.push({ name: i.file, data: new Uint8Array(await i.blob.arrayBuffer()) });
+    saveBlob(makeZip(files), `screenshots-${shownJob}.zip`);
+  }
+
+  // ---- results ------------------------------------------------------------
+  function openViewer(item) {
+    $('#viewerTitle').textContent = item.file;
+    $('#viewerImg').src = item.objectUrl;
+    $('#viewerImg').alt = item.file;
+    $('#viewer').showModal();
+  }
+
+  const DOWNLOAD_ICON =
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>';
+
+  function renderResults(job, manifest, items) {
+    shown = items;
+    shownJob = job;
+    const okCount = items.filter((i) => i.ok).length;
+    $('#resultsTitle').textContent =
+      okCount === items.length
+        ? `${okCount} image${okCount === 1 ? '' : 's'}`
+        : `${okCount} of ${items.length} captured`;
+    $('#zipAll').hidden = okCount < 2;
+
+    const box = $('#shots');
+    box.textContent = '';
+    for (const it of items) {
+      const fig = el('figure', { class: 'shot' });
+      fig.style.margin = '0 0 30px';
+
+      if (it.ok && it.objectUrl) {
+        const img = el('img', { src: it.objectUrl, alt: it.file, loading: 'lazy' });
+        const thumb = el('button', { class: 'thumb', 'aria-label': 'View ' + it.file }, img);
+        thumb.addEventListener('click', () => openViewer(it));
+
+        const dl = el('button', { class: 'btn-line', 'aria-label': 'Download ' + it.file });
+        dl.innerHTML = DOWNLOAD_ICON + '<span>Download</span>';
+        dl.addEventListener('click', () => saveBlob(it.blob, it.file));
+
+        const details = `${it.width} × ${it.height}  ·  ${fmtBytes(it.bytes)}${it.signedIn ? '  ·  signed in' : ''}`;
+        fig.append(
+          thumb,
+          el('div', { class: 'cap' }, el('div', { class: 't' }, el('div', { class: 'n', text: it.file }), el('div', { class: 'm', text: shortUrl(it.url) }), el('div', { class: 'm', text: details })), dl)
+        );
+      } else {
+        fig.append(
+          el('div', { class: 'fail' }, el('div', { class: 'n', text: it.url }), el('div', { class: 'm', text: it.error || 'This link could not be captured.' }))
+        );
+      }
+      box.append(fig);
+    }
+    $('#results').hidden = false;
+    $('#results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function showJob(job) {
+    clearResults();
+    setStatus('Loading images', { busy: true });
+    try {
+      const mres = await gh(jobPath(job, 'manifest.json'), { raw: true });
+      if (!mres.ok) {
+        setStatus(mres.status === 404 ? 'No images found for this run.' : explain(mres), { error: true });
+        return false;
+      }
+      const manifest = await mres.json();
+      const items = manifest.items || [];
+      const todo = items.filter((i) => i.ok);
+      let loaded = 0;
+      const worker = async () => {
+        while (todo.length) {
+          const i = todo.shift();
+          try {
+            const r = await gh(jobPath(job, i.file), { raw: true });
+            if (!r.ok) throw new Error('status ' + r.status);
+            i.blob = new Blob([await r.arrayBuffer()], { type: 'image/png' });
+            i.objectUrl = URL.createObjectURL(i.blob);
+          } catch {
+            i.ok = false;
+            i.error = 'The image could not be loaded from GitHub.';
+          }
+          loaded++;
+          setStatus(`Loading images, ${loaded} of ${total}`, { busy: true });
+        }
+      };
+      const total = todo.length;
+      await Promise.all(Array.from({ length: Math.min(6, total) }, worker));
+      const ok = items.filter((i) => i.ok).length;
+      setStatus(ok ? 'Done' : 'Nothing was captured', {
+        done: ok > 0,
+        error: ok === 0,
+        sub: [jobLabel(job), manifest.warning, ...(manifest.notes || [])].filter(Boolean).join('. '),
+      });
+      renderResults(job, manifest, items);
+      return true;
+    } catch {
+      setStatus(NETWORK, { error: true });
+      return false;
+    }
+  }
+
+  // ---- history ------------------------------------------------------------
+  async function loadHistory() {
+    if (!configured()) return;
+    try {
+      const res = await gh(`/repos/${cfg.repo}/contents/jobs?ref=${encodeURIComponent(cfg.branch)}`);
+      if (!res.ok) { $('#history').hidden = true; return; }
+      const list = await res.json();
+      const jobs = list.filter((x) => x.type === 'dir').map((x) => x.name).sort().reverse().slice(0, 10);
+      const ul = $('#historyList');
+      ul.textContent = '';
+      for (const j of jobs) {
+        const b = el('button', { text: jobLabel(j) });
+        b.addEventListener('click', () => { if (!tracking) showJob(j); });
+        ul.append(el('li', {}, b));
+      }
+      $('#history').hidden = jobs.length === 0;
+    } catch {
+      $('#history').hidden = true;
+    }
+  }
+
+  // ---- run tracking -------------------------------------------------------
+  async function track(job, crawl) {
+    tracking = job;
+    lockUI(true);
+    const wait = crawl ? 'Crawling a whole site can take a few minutes.' : 'This usually takes one to two minutes.';
+    setStatus('Queued on GitHub', { busy: true, sub: wait });
+    const started = Date.now();
+
+    while (tracking === job) {
+      await sleep(4000);
+      let run = null;
+      try {
+        const res = await gh(`${wf()}/runs?event=workflow_dispatch&per_page=15`);
+        if (res.ok) {
+          const data = await res.json();
+          run = (data.workflow_runs || []).find((r) => (r.display_title || r.name || '').includes(job));
+        }
+      } catch { /* try again on the next tick */ }
+
+      if (!run) {
+        if (Date.now() - started > 90000) {
+          setStatus('GitHub has not started the run yet.', { error: true, sub: 'Open the Actions tab of the repository to check.' });
+          break;
+        }
+        continue;
+      }
+
+      if (run.status === 'completed') {
+        if (run.conclusion === 'success') await showJob(job);
+        else setStatus('The run ended with: ' + (run.conclusion || 'unknown'), { error: true, link: run.html_url });
+        break;
+      }
+      setStatus(run.status === 'in_progress' ? 'Taking screenshots' : 'Queued on GitHub', {
+        busy: true,
+        sub: wait,
+        link: run.html_url,
+      });
+    }
+
+    if (tracking === job) tracking = null;
+    store.del(PENDING);
+    lockUI(false);
+    loadHistory();
+  }
+
+  async function capture() {
+    if (tracking) return;
+    if (!configured()) {
+      openSettings();
+      $('#settingsMsg').textContent = 'Add your repository and token first.';
+      return;
+    }
+    const parsed = parseLinks($('#links').value);
+    if (parsed.error) { setStatus(parsed.error, { error: true }); return; }
+
+    const job = newJobId();
+    const crawl = $('input[name=crawl]:checked').value === 'true';
+    const body = {
+      ref: cfg.ref,
+      inputs: {
+        job_id: job,
+        urls: parsed.text,
+        width: $('input[name=width]:checked').value,
+        scale: $('input[name=scale]:checked').value,
+        full_page: String($('#full').checked),
+        crawl: String(crawl),
+        max_pages: $('input[name=maxpages]:checked').value,
+      },
+    };
+
+    lockUI(true);
+    clearResults();
+    setStatus('Sending to GitHub', { busy: true });
+    try {
+      const res = await gh(`${wf()}/dispatches`, { method: 'POST', body: JSON.stringify(body) });
+      if (res.status !== 204) {
+        setStatus(explain(res), { error: true });
+        lockUI(false);
+        return;
+      }
+    } catch {
+      setStatus(NETWORK, { error: true });
+      lockUI(false);
+      return;
+    }
+    store.set(PENDING, { job, t: Date.now(), crawl });
+    track(job, crawl);
+  }
+
+  // ---- settings -----------------------------------------------------------
+  function fillSettings() {
+    $('#s-repo').value = cfg.repo;
+    $('#s-token').value = cfg.token;
+    $('#s-workflow').value = cfg.workflow;
+    $('#s-ref').value = cfg.ref;
+    $('#s-branch').value = cfg.branch;
+  }
+  function openSettings() {
+    $('#settings').hidden = false;
+    $('#gear').setAttribute('aria-expanded', 'true');
+  }
+  function toggleSettings() {
+    const open = $('#settings').hidden;
+    $('#settings').hidden = !open;
+    $('#gear').setAttribute('aria-expanded', String(open));
+  }
+
+  async function saveSettings() {
+    const msg = $('#settingsMsg');
+    const repo = $('#s-repo').value.trim()
+      .replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/\/+$/, '');
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) { msg.textContent = 'Use the form owner/repository.'; return; }
+    const token = $('#s-token').value.trim();
+    if (!token) { msg.textContent = 'Paste your access token.'; return; }
+
+    Object.assign(cfg, {
+      repo,
+      token,
+      workflow: $('#s-workflow').value.trim() || 'screenshots.yml',
+      ref: $('#s-ref').value.trim() || 'main',
+      branch: $('#s-branch').value.trim() || 'screenshots',
+    });
+    store.set(KEY, cfg);
+    fillSettings();
+
+    msg.textContent = 'Testing the connection';
+    try {
+      const res = await gh(wf());
+      if (res.ok) {
+        msg.textContent = 'Connected. You can capture now.';
+        $('#settings').hidden = true;
+        $('#gear').setAttribute('aria-expanded', 'false');
+        loadHistory();
+      } else {
+        msg.textContent = explain(res);
+      }
+    } catch {
+      msg.textContent = NETWORK;
+    }
+  }
+
+  // ---- wire up ------------------------------------------------------------
+  $('#gear').addEventListener('click', toggleSettings);
+  $('#saveSettings').addEventListener('click', saveSettings);
+  $('#go').addEventListener('click', capture);
+  $('#zipAll').addEventListener('click', downloadAll);
+  $('#viewerClose').addEventListener('click', () => $('#viewer').close());
+  $('#viewer').addEventListener('close', () => { $('#viewerImg').removeAttribute('src'); });
+
+  function syncCrawl() {
+    const on = $('input[name=crawl]:checked').value === 'true';
+    $('#crawlMore').hidden = !on;
+    $('#crawlHint').hidden = !on;
+  }
+  document.querySelectorAll('input[name=crawl]').forEach((r) => r.addEventListener('change', syncCrawl));
+
+  fillSettings();
+  if (!configured()) {
+    openSettings();
+  } else {
+    loadHistory();
+    const p = store.get(PENDING);
+    if (p && Date.now() - p.t < 45 * 60 * 1000) track(p.job, p.crawl);
+    else store.del(PENDING);
+  }
+})();
+</script>
+</body>
+</html>

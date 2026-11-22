@@ -1,0 +1,15 @@
+{
+  "demo.example.com": {
+    "loginUrl": "https://demo.example.com/login",
+    "username": "demo@example.com",
+    "password": "your-demo-password"
+  },
+  "app.another-site.com": {
+    "loginUrl": "https://app.another-site.com/signin",
+    "username": "demo@another-site.com",
+    "password": "another-password",
+    "userSelector": "#email",
+    "passSelector": "#password",
+    "submitSelector": "button.login-btn"
+  }
+}
