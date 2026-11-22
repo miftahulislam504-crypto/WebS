@@ -28,19 +28,40 @@ if (jobId === 'manual') {
 const OUT_DIR = path.resolve(process.env.OUT_ROOT || '../out/jobs', jobId);
 
 // ---- site logins (from the SITE_LOGINS repository secret) ---------------------
+// Keys are a host ("app.example.com") or a host plus folder ("user.github.io/ez-menu").
 // { "app.example.com": { "loginUrl": "...", "username": "...", "password": "..." } }
-const logins = {};
+const loginRules = []; // { key, host, path, cfg }
 let warning = '';
 const notes = [];
 if ((process.env.SITE_LOGINS || '').trim()) {
   try {
     const parsed = JSON.parse(process.env.SITE_LOGINS);
-    for (const [host, cfg] of Object.entries(parsed)) logins[host.trim().toLowerCase()] = cfg;
-    console.log(`Login configured for: ${Object.keys(logins).join(', ') || '(none)'}`);
+    for (const [rawKey, cfg] of Object.entries(parsed)) {
+      const key = rawKey.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+      const slash = key.indexOf('/');
+      const host = (slash === -1 ? key : key.slice(0, slash)).toLowerCase();
+      const folder = slash === -1 ? '' : '/' + key.slice(slash + 1).replace(/^\/+/, '');
+      loginRules.push({ key: host + folder, host, path: folder, cfg });
+    }
+    console.log(`Login configured for: ${loginRules.map((r) => r.key).join(', ') || '(none)'}`);
   } catch {
     warning = 'The SITE_LOGINS secret is not valid JSON, so pages were captured without signing in.';
     console.error(warning);
   }
+}
+
+// the most specific rule wins: "host/folder" beats "host"
+function findLogin(url) {
+  const u = new URL(url);
+  const host = u.hostname.toLowerCase();
+  const p = u.pathname.replace(/\/+$/, '') + '/';
+  let best = null;
+  for (const r of loginRules) {
+    if (r.host !== host) continue;
+    if (r.path && !(p === r.path + '/' || p.startsWith(r.path + '/'))) continue;
+    if (!best || r.path.length > best.path.length) best = r;
+  }
+  return best;
 }
 
 const DEFAULT_USER = [
@@ -58,7 +79,8 @@ const DEFAULT_USER = [
 const DEFAULT_PASS = 'input[type="password"]:visible';
 const DEFAULT_SUBMIT = 'button[type="submit"]:visible, input[type="submit"]:visible';
 
-function checkLogin(host, c) {
+function checkLogin(rule) {
+  const c = rule.cfg;
   if (!c || typeof c !== 'object') return 'Login settings for this site are not an object.';
   for (const k of ['loginUrl', 'username', 'password']) {
     if (!c[k] || typeof c[k] !== 'string') return `Login settings for this site are missing "${k}".`;
@@ -70,7 +92,8 @@ function checkLogin(host, c) {
     return 'Login settings: loginUrl is not a valid link.';
   }
   // never send credentials to a different site than the one they belong to
-  if (u.hostname.toLowerCase() !== host && !u.hostname.toLowerCase().endsWith('.' + host)) {
+  const h = u.hostname.toLowerCase();
+  if (h !== rule.host && !h.endsWith('.' + rule.host)) {
     return 'Login settings: loginUrl must be on the same site as its key.';
   }
   return '';
@@ -86,7 +109,13 @@ async function doLogin(page, c) {
   await user.fill(c.username);
   await pass.fill(c.password);
 
-  const submit = page.locator(c.submitSelector || DEFAULT_SUBMIT).first();
+  let submit = page.locator(c.submitSelector || DEFAULT_SUBMIT).first();
+  if (!(await submit.count()) && !c.submitSelector) {
+    // forms built with a plain button (no type="submit"): find it by its label
+    submit = page
+      .getByRole('button', { name: /sign ?in|log ?in|login|submit|continue|enter|লগ ?ইন|সাইন ইন/i })
+      .first();
+  }
   if (await submit.count()) await submit.click();
   else await pass.press('Enter');
 
@@ -128,8 +157,12 @@ function uniqueName(base) {
 const samePage = (a, b) => {
   const x = new URL(a);
   const y = new URL(b);
-  return x.origin === y.origin && x.pathname === y.pathname;
+  return x.origin === y.origin && x.pathname.replace(/\/+$/, '') === y.pathname.replace(/\/+$/, '');
 };
+
+// GitHub Pages answers deep links of single-page apps with HTTP 404 (its 404.html
+// fallback) even though the app shows the page fine, so the status means nothing there.
+const isGhPages = (host) => host.endsWith('.github.io');
 
 // Each entry is either "url" or "name url", separated by new lines or commas
 function parseTargets(raw) {
@@ -214,7 +247,8 @@ const SKIP_PATH = /(^|[/_=&?-])(log-?out|sign-?out|signoff|delete|remove|destroy
 
 const routePath = (u) => (/^#!?\//.test(u.hash) ? u.hash.replace(/^#!?/, '') : u.pathname);
 
-function normalizeLink(href, baseUrl, host) {
+// scope: a folder ("/ez-menu") that the crawl must stay inside, or '' for the whole host
+function normalizeLink(href, baseUrl, host, scope) {
   let u;
   try {
     u = new URL(href, baseUrl);
@@ -223,6 +257,7 @@ function normalizeLink(href, baseUrl, host) {
   }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
   if (u.hostname.toLowerCase() !== host) return null;
+  if (scope && !(u.pathname === scope || u.pathname.startsWith(scope + '/'))) return null;
   // keep only hash *routes* (#/orders), drop in-page anchors (#section)
   if (!/^#!?\//.test(u.hash)) u.hash = '';
   for (const k of [...u.searchParams.keys()]) {
@@ -237,7 +272,7 @@ function normalizeLink(href, baseUrl, host) {
 const isIdLike = (s) =>
   /^\d+$/.test(s) || /^[0-9a-f]{8,}$/i.test(s) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(s);
 
-async function sitemapUrls(context, origin, host) {
+async function sitemapUrls(context, origin, host, scope) {
   const grab = async (u) => {
     try {
       const r = await context.request.get(u, { timeout: 10000 });
@@ -249,7 +284,7 @@ async function sitemapUrls(context, origin, host) {
   const locs = (xml) =>
     [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => m[1].replace(/&amp;/g, '&'));
 
-  const xml = await grab(`${origin}/sitemap.xml`);
+  const xml = await grab(`${origin}${scope}/sitemap.xml`);
   if (!xml) return [];
   let out = [];
   if (/<sitemapindex/i.test(xml)) {
@@ -266,23 +301,84 @@ async function sitemapUrls(context, origin, host) {
   return out.slice(0, 500);
 }
 
+async function getHrefs(page) {
+  for (let i = 0; i < 3; i++) {
+    try {
+      return await page.$$eval('a[href]', (as) =>
+        as.map((a) => (typeof a.href === 'string' ? a.href : ''))
+      );
+    } catch {
+      // the page was still navigating (for example a client-side redirect): wait and retry
+      await page.waitForLoadState('load').catch(() => {});
+      await page.waitForTimeout(1000);
+    }
+  }
+  return [];
+}
+
+// Sign in once per site/folder and remember the session for later links
+async function ensureSignedIn(page, context, rule) {
+  if (failedLogins.has(rule.key)) throw new Error(failedLogins.get(rule.key));
+  const bad = checkLogin(rule);
+  if (bad) {
+    failedLogins.set(rule.key, bad);
+    throw new Error(bad);
+  }
+  if (!sessions.has(rule.key)) {
+    console.log(`  signing in to ${rule.key}`);
+    try {
+      await doLogin(page, rule.cfg);
+    } catch (e) {
+      failedLogins.set(rule.key, e.message.split('\n')[0].slice(0, 200));
+      throw e;
+    }
+    sessions.set(rule.key, await context.storageState());
+  }
+  return true;
+}
+
 // Follow links on a site and take one screenshot of every page found
-async function crawl(page, context, t, host, login, signedIn) {
+async function crawl(page, context, t, host, rule) {
+  if (rule) {
+    const bad = checkLogin(rule);
+    if (bad) throw new Error(bad);
+  }
+  const login = rule ? rule.cfg : null;
   const origin = new URL(t.url).origin;
-  const seedUrl = normalizeLink(t.url, t.url, host) || t.url;
+
+  // stay inside the app's folder when the host is shared (GitHub Pages) or the rule has a folder
+  let scope = rule && rule.path ? rule.path : '';
+  if (!scope && isGhPages(host)) {
+    const first = new URL(t.url).pathname.split('/').filter(Boolean)[0];
+    if (first) scope = '/' + first;
+  }
+  const norm = (href, base) => normalizeLink(href, base, host, scope);
+
+  const seedUrl = norm(t.url, t.url) || t.url;
+  // starting from the login page itself: capture it signed out, then sign in and go on
+  const seedIsLogin = Boolean(login) && samePage(seedUrl, login.loginUrl);
+  let signedIn = false;
+  if (login && !seedIsLogin) signedIn = await ensureSignedIn(page, context, rule);
+
   const seen = new Set([seedUrl]);
   const queue = [seedUrl];
   const counts = new Map();
 
   // keeps big sections (product lists, blog posts) from using up the whole limit
+  let capped = 0;
   const accept = (u) => {
     const x = new URL(u);
-    const rp = routePath(x);
+    let rp = routePath(x);
+    // count folders from the app folder down, so pages at the top level of an app are not "in a folder"
+    if (scope && !/^#!?\//.test(x.hash) && rp.startsWith(scope)) rp = rp.slice(scope.length) || '/';
     const segs = rp.split('/').filter(Boolean);
     const keys = [[`path:${rp}`, 3]];
     if (segs.some(isIdLike)) keys.push([`shape:${segs.map((s) => (isIdLike(s) ? ':id' : s)).join('/')}`, 2]);
-    if (segs.length >= 2) keys.push([`folder:${segs.slice(0, -1).join('/')}`, 5]);
-    if (keys.some(([k, cap]) => (counts.get(k) || 0) >= cap)) return false;
+    if (segs.length >= 2) keys.push([`folder:${segs.slice(0, -1).join('/')}`, 12]);
+    if (keys.some(([k, cap]) => (counts.get(k) || 0) >= cap)) {
+      capped++;
+      return false;
+    }
     for (const [k] of keys) counts.set(k, (counts.get(k) || 0) + 1);
     return true;
   };
@@ -297,19 +393,21 @@ async function crawl(page, context, t, host, login, signedIn) {
   let taken = 0;
   let fails = 0;
   let sitemapTried = false;
+  let firstLinkCount = null;
   const okCount = () => items.filter((i) => i.ok).length;
+  const ignoreStatus = isGhPages(host);
 
   while (queue.length && taken < MAX_PAGES && okCount() < TOTAL_CAP && fails < 5) {
     const url = queue.shift();
     console.log(`  [${taken + 1}/${MAX_PAGES}] ${url}`);
     try {
       const status = await visit(page, url);
-      const finalUrl = normalizeLink(page.url(), page.url(), host);
+      const finalUrl = norm(page.url(), page.url());
       if (!finalUrl) {
-        console.log('  skipped (left the site)');
+        console.log('  skipped (left the site or the app folder)');
         continue;
       }
-      if (status >= 400) {
+      if (status >= 400 && !ignoreStatus) {
         if (url === seedUrl) throw new Error(`The page answered with HTTP ${status}`);
         console.log(`  skipped (HTTP ${status})`);
         continue;
@@ -323,7 +421,6 @@ async function crawl(page, context, t, host, login, signedIn) {
       }
       if (
         login &&
-        typeof login.loginUrl === 'string' &&
         samePage(finalUrl, login.loginUrl) &&
         !samePage(url, login.loginUrl)
       ) {
@@ -331,13 +428,12 @@ async function crawl(page, context, t, host, login, signedIn) {
         continue;
       }
 
-      const hrefs = await page.$$eval('a[href]', (as) =>
-        as.map((a) => (typeof a.href === 'string' ? a.href : ''))
-      );
-      for (const h of hrefs) enqueue(normalizeLink(h, finalUrl, host));
+      const hrefs = await getHrefs(page);
+      if (firstLinkCount === null) firstLinkCount = hrefs.length;
+      for (const h of hrefs) enqueue(norm(h, finalUrl));
       if (!sitemapTried) {
         sitemapTried = true;
-        for (const u of await sitemapUrls(context, origin, host)) enqueue(normalizeLink(u, origin, host));
+        for (const u of await sitemapUrls(context, origin, host, scope)) enqueue(norm(u, origin));
       }
 
       const fx = new URL(finalUrl);
@@ -345,6 +441,15 @@ async function crawl(page, context, t, host, login, signedIn) {
       items.push(await shoot(page, name, finalUrl, signedIn));
       taken++;
       fails = 0;
+
+      if (seedIsLogin && !signedIn && url === seedUrl) {
+        signedIn = await ensureSignedIn(page, context, rule);
+        const landing = norm(page.url(), page.url());
+        if (landing && !seen.has(landing) && accept(landing)) {
+          seen.add(landing);
+          queue.unshift(landing);
+        }
+      }
     } catch (err) {
       fails++;
       const msg = err.message.split('\n')[0].slice(0, 200);
@@ -354,11 +459,22 @@ async function crawl(page, context, t, host, login, signedIn) {
   }
 
   const left = queue.length;
-  if (fails >= 5) notes.push(`${host}: stopped after 5 failures in a row.`);
-  else if (left > 0 && taken >= MAX_PAGES) {
+  if (capped > 0) {
+    notes.push(`${host}: ${capped} similar pages were left out (many pages of one kind, like product or blog pages).`);
+  }
+  if (fails >= 5) {
+    notes.push(`${host}: stopped after 5 failures in a row.`);
+  } else if (left > 0 && taken >= MAX_PAGES) {
     notes.push(`${host}: captured ${taken} pages, ${left} more were found. Raise the limit to get them.`);
   } else if (left > 0) {
     notes.push(`${host}: stopped at the limit of ${TOTAL_CAP} screenshots per run.`);
+  } else if (taken <= 1) {
+    const seenLinks = firstLinkCount === null ? 0 : firstLinkCount;
+    notes.push(
+      signedIn
+        ? `${host}: only ${taken} page was found after signing in (the first page had ${seenLinks} links). The menus may work with buttons instead of links.`
+        : `${host}: only ${taken} page was found (the first page had ${seenLinks} links). Either the other pages need a sign-in, so add the site to SITE_LOGINS, or the menus work with buttons instead of links.`
+    );
   }
 }
 
@@ -373,8 +489,8 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
 
 const browser = await chromium.launch();
 const items = [];
-const sessions = new Map(); // host -> saved session after a successful login
-const failedLogins = new Map(); // host -> error (never retried, avoids account lockouts)
+const sessions = new Map(); // login rule key -> saved session after a successful login
+const failedLogins = new Map(); // login rule key -> error (never retried, avoids account lockouts)
 const crawled = new Set();
 
 for (const t of targets) {
@@ -384,6 +500,7 @@ for (const t of targets) {
   }
 
   const host = new URL(t.url).hostname.toLowerCase();
+  const rule = findLogin(t.url);
 
   if (items.filter((i) => i.ok).length >= TOTAL_CAP) {
     items.push({
@@ -394,13 +511,11 @@ for (const t of targets) {
     });
     continue;
   }
-  if (CRAWL && crawled.has(host)) {
-    notes.push(`${host}: skipped a second link, the site was already crawled in this run.`);
+  const crawlKey = rule ? rule.key : host + (isGhPages(host) ? '/' + (new URL(t.url).pathname.split('/')[1] || '') : '');
+  if (CRAWL && crawled.has(crawlKey)) {
+    notes.push(`${crawlKey}: skipped a second link, the site was already crawled in this run.`);
     continue;
   }
-
-  const login = logins[host];
-  let signedIn = false;
 
   const context = await browser.newContext({
     viewport: { width: WIDTH, height: HEIGHT },
@@ -408,43 +523,27 @@ for (const t of targets) {
     userAgent: DESKTOP_UA,
     isMobile: false,
     hasTouch: false,
-    storageState: sessions.get(host),
+    storageState: rule ? sessions.get(rule.key) : undefined,
   });
   const page = await context.newPage();
 
   try {
     console.log(`> ${t.base}  ${t.url}${CRAWL ? '  (whole site)' : ''}`);
 
-    // a link to the login page itself is captured signed out
-    const isLoginPage =
-      Boolean(login) && typeof login.loginUrl === 'string' && samePage(t.url, login.loginUrl);
-    if (login && !isLoginPage) {
-      if (failedLogins.has(host)) throw new Error(failedLogins.get(host));
-      const bad = checkLogin(host, login);
-      if (bad) {
-        failedLogins.set(host, bad);
-        throw new Error(bad);
-      }
-      if (!sessions.has(host)) {
-        console.log(`  signing in to ${host}`);
-        try {
-          await doLogin(page, login);
-        } catch (e) {
-          failedLogins.set(host, e.message.split('\n')[0].slice(0, 200));
-          throw e;
-        }
-        sessions.set(host, await context.storageState());
-      }
-      signedIn = true;
-    }
-
     if (CRAWL) {
-      crawled.add(host);
-      await crawl(page, context, t, host, login, signedIn);
+      crawled.add(crawlKey);
+      await crawl(page, context, t, host, rule);
     } else {
+      // a link to the login page itself is captured signed out
+      let signedIn = false;
+      if (rule) {
+        const bad = checkLogin(rule);
+        if (bad) throw new Error(bad);
+        if (!samePage(t.url, rule.cfg.loginUrl)) signedIn = await ensureSignedIn(page, context, rule);
+      }
       const status = await visit(page, t.url);
       if (status >= 400) console.warn(`  warning: HTTP ${status}`);
-      if (signedIn && samePage(page.url(), login.loginUrl)) {
+      if (signedIn && samePage(page.url(), rule.cfg.loginUrl)) {
         throw new Error('Sent back to the login page. The sign-in was not accepted for this link.');
       }
       items.push(await shoot(page, uniqueName(t.base), t.url, signedIn));

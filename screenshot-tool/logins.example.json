@@ -1,12 +1,12 @@
 {
-  "demo.example.com": {
-    "loginUrl": "https://demo.example.com/login",
+  "miftahulislam504-crypto.github.io/ez-menu": {
+    "loginUrl": "https://miftahulislam504-crypto.github.io/ez-menu/login",
     "username": "demo@example.com",
     "password": "your-demo-password"
   },
-  "app.another-site.com": {
-    "loginUrl": "https://app.another-site.com/signin",
-    "username": "demo@another-site.com",
+  "demo.example.com": {
+    "loginUrl": "https://demo.example.com/login",
+    "username": "demo@example.com",
     "password": "another-password",
     "userSelector": "#email",
     "passSelector": "#password",
