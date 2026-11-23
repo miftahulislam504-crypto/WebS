@@ -58,7 +58,9 @@ function findLogin(url) {
   let best = null;
   for (const r of loginRules) {
     if (r.host !== host) continue;
-    if (r.path && !(p === r.path + '/' || p.startsWith(r.path + '/'))) continue;
+    const pl = p.toLowerCase();
+    const rl = r.path.toLowerCase();
+    if (rl && !(pl === rl + '/' || pl.startsWith(rl + '/'))) continue;
     if (!best || r.path.length > best.path.length) best = r;
   }
   return best;
@@ -82,30 +84,75 @@ const DEFAULT_SUBMIT = 'button[type="submit"]:visible, input[type="submit"]:visi
 function checkLogin(rule) {
   const c = rule.cfg;
   if (!c || typeof c !== 'object') return 'Login settings for this site are not an object.';
-  for (const k of ['loginUrl', 'username', 'password']) {
+  for (const k of ['username', 'password']) {
     if (!c[k] || typeof c[k] !== 'string') return `Login settings for this site are missing "${k}".`;
   }
-  let u;
-  try {
-    u = new URL(c.loginUrl);
-  } catch {
-    return 'Login settings: loginUrl is not a valid link.';
-  }
-  // never send credentials to a different site than the one they belong to
-  const h = u.hostname.toLowerCase();
-  if (h !== rule.host && !h.endsWith('.' + rule.host)) {
-    return 'Login settings: loginUrl must be on the same site as its key.';
+  if (c.loginUrl) {
+    let u;
+    try {
+      u = new URL(c.loginUrl);
+    } catch {
+      return 'Login settings: loginUrl is not a valid link.';
+    }
+    // never send credentials to a different site than the one they belong to
+    const h = u.hostname.toLowerCase();
+    if (h !== rule.host && !h.endsWith('.' + rule.host)) {
+      return 'Login settings: loginUrl must be on the same site as its key.';
+    }
   }
   return '';
 }
 
-async function doLogin(page, c) {
-  await page.goto(c.loginUrl, { waitUntil: 'load', timeout: 45000 });
-  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+// where the sign-in form is: the configured loginUrl, or the page where it was found
+const loginPageOf = (rule) => (rule.cfg && rule.cfg.loginUrl) || rule.loginPage || '';
+
+const shortUrl = (u) => {
+  try {
+    const x = new URL(u);
+    return x.host + (x.pathname === '/' ? '' : x.pathname);
+  } catch {
+    return u;
+  }
+};
+
+// Opens the login page, fills the form and submits. Returns the address where the form was found.
+// The password field is the anchor: every sign-in form has one.
+async function doLogin(page, c, fallbackUrls = []) {
+  const passSel = c.passSelector || DEFAULT_PASS;
+  const candidates = [c.loginUrl, ...fallbackUrls].filter((u, i, a) => u && a.indexOf(u) === i);
+  const tried = [];
+  let loginPage = '';
+
+  for (const u of candidates) {
+    const res = await page.goto(u, { waitUntil: 'load', timeout: 45000 }).catch(() => null);
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    const found = await page
+      .locator(passSel)
+      .first()
+      .waitFor({ state: 'visible', timeout: 12000 })
+      .then(() => true)
+      .catch(() => false);
+    if (found) {
+      loginPage = page.url();
+      break;
+    }
+    tried.push(`${shortUrl(u)} (${res ? 'HTTP ' + res.status() : 'could not be opened'})`);
+  }
+  if (!loginPage) {
+    throw new Error(
+      `Login form not found. Opened: ${tried.join(', ')}. Check loginUrl: web addresses on GitHub Pages are case-sensitive.`
+    );
+  }
 
   const user = page.locator(c.userSelector || DEFAULT_USER).first();
-  const pass = page.locator(c.passSelector || DEFAULT_PASS).first();
-  await user.waitFor({ state: 'visible', timeout: 15000 });
+  const pass = page.locator(passSel).first();
+  try {
+    await user.waitFor({ state: 'visible', timeout: 10000 });
+  } catch {
+    throw new Error(
+      'The login form was found but the username field was not recognised. Add "userSelector" to the login settings.'
+    );
+  }
   await user.fill(c.username);
   await pass.fill(c.password);
 
@@ -122,16 +169,13 @@ async function doLogin(page, c) {
   // the login form should go away once we are signed in
   await pass.waitFor({ state: 'hidden', timeout: 20000 }).catch(() => {});
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-  const stillThere = await page
-    .locator(c.passSelector || DEFAULT_PASS)
-    .first()
-    .isVisible()
-    .catch(() => false);
+  const stillThere = await page.locator(passSel).first().isVisible().catch(() => false);
   if (stillThere) {
     throw new Error(
       'Login failed: the login form is still showing. Check the username, the password and the selectors.'
     );
   }
+  return loginPage;
 }
 
 // ---- helpers ----------------------------------------------------------------
@@ -317,7 +361,7 @@ async function getHrefs(page) {
 }
 
 // Sign in once per site/folder and remember the session for later links
-async function ensureSignedIn(page, context, rule) {
+async function ensureSignedIn(page, context, rule, fallbackUrls = []) {
   if (failedLogins.has(rule.key)) throw new Error(failedLogins.get(rule.key));
   const bad = checkLogin(rule);
   if (bad) {
@@ -327,9 +371,9 @@ async function ensureSignedIn(page, context, rule) {
   if (!sessions.has(rule.key)) {
     console.log(`  signing in to ${rule.key}`);
     try {
-      await doLogin(page, rule.cfg);
+      rule.loginPage = await doLogin(page, rule.cfg, fallbackUrls);
     } catch (e) {
-      failedLogins.set(rule.key, e.message.split('\n')[0].slice(0, 200));
+      failedLogins.set(rule.key, e.message.split('\n')[0].slice(0, 300));
       throw e;
     }
     sessions.set(rule.key, await context.storageState());
@@ -347,18 +391,18 @@ async function crawl(page, context, t, host, rule) {
   const origin = new URL(t.url).origin;
 
   // stay inside the app's folder when the host is shared (GitHub Pages) or the rule has a folder
-  let scope = rule && rule.path ? rule.path : '';
-  if (!scope && isGhPages(host)) {
-    const first = new URL(t.url).pathname.split('/').filter(Boolean)[0];
-    if (first) scope = '/' + first;
-  }
+  const urlSegs = new URL(t.url).pathname.split('/').filter(Boolean);
+  let scope = '';
+  if (rule && rule.path) scope = '/' + urlSegs.slice(0, rule.path.split('/').filter(Boolean).length).join('/');
+  else if (isGhPages(host) && urlSegs[0]) scope = '/' + urlSegs[0];
   const norm = (href, base) => normalizeLink(href, base, host, scope);
 
   const seedUrl = norm(t.url, t.url) || t.url;
   // starting from the login page itself: capture it signed out, then sign in and go on
-  const seedIsLogin = Boolean(login) && samePage(seedUrl, login.loginUrl);
+  const seedIsLogin = Boolean(login && login.loginUrl) && samePage(seedUrl, login.loginUrl);
+  const fallbacks = [seedUrl, `${origin}${scope}/`];
   let signedIn = false;
-  if (login && !seedIsLogin) signedIn = await ensureSignedIn(page, context, rule);
+  if (login && !seedIsLogin) signedIn = await ensureSignedIn(page, context, rule, fallbacks);
 
   const seen = new Set([seedUrl]);
   const queue = [seedUrl];
@@ -419,11 +463,8 @@ async function crawl(page, context, t, host, rule) {
         }
         seen.add(finalUrl);
       }
-      if (
-        login &&
-        samePage(finalUrl, login.loginUrl) &&
-        !samePage(url, login.loginUrl)
-      ) {
+      const lp = rule ? loginPageOf(rule) : '';
+      if (lp && samePage(finalUrl, lp) && !samePage(url, lp)) {
         console.log('  skipped (sent to the login page)');
         continue;
       }
@@ -443,7 +484,7 @@ async function crawl(page, context, t, host, rule) {
       fails = 0;
 
       if (seedIsLogin && !signedIn && url === seedUrl) {
-        signedIn = await ensureSignedIn(page, context, rule);
+        signedIn = await ensureSignedIn(page, context, rule, fallbacks);
         const landing = norm(page.url(), page.url());
         if (landing && !seen.has(landing) && accept(landing)) {
           seen.add(landing);
@@ -452,7 +493,7 @@ async function crawl(page, context, t, host, rule) {
       }
     } catch (err) {
       fails++;
-      const msg = err.message.split('\n')[0].slice(0, 200);
+      const msg = err.message.split('\n')[0].slice(0, 300);
       console.error(`  FAILED: ${msg}`);
       items.push({ name: uniqueName(slugify(host + new URL(url).pathname)), url, ok: false, error: msg });
     }
@@ -468,7 +509,7 @@ async function crawl(page, context, t, host, rule) {
     notes.push(`${host}: captured ${taken} pages, ${left} more were found. Raise the limit to get them.`);
   } else if (left > 0) {
     notes.push(`${host}: stopped at the limit of ${TOTAL_CAP} screenshots per run.`);
-  } else if (taken <= 1) {
+  } else if (taken === 1) {
     const seenLinks = firstLinkCount === null ? 0 : firstLinkCount;
     notes.push(
       signedIn
@@ -539,17 +580,22 @@ for (const t of targets) {
       if (rule) {
         const bad = checkLogin(rule);
         if (bad) throw new Error(bad);
-        if (!samePage(t.url, rule.cfg.loginUrl)) signedIn = await ensureSignedIn(page, context, rule);
+        const isLoginPage = Boolean(rule.cfg.loginUrl) && samePage(t.url, rule.cfg.loginUrl);
+        if (!isLoginPage) {
+          const sUrls = new URL(t.url).pathname.split('/').filter(Boolean);
+          const sScope = rule.path ? '/' + sUrls.slice(0, rule.path.split('/').filter(Boolean).length).join('/') : '';
+          signedIn = await ensureSignedIn(page, context, rule, [t.url, `${new URL(t.url).origin}${sScope}/`]);
+        }
       }
       const status = await visit(page, t.url);
       if (status >= 400) console.warn(`  warning: HTTP ${status}`);
-      if (signedIn && samePage(page.url(), rule.cfg.loginUrl)) {
+      if (signedIn && loginPageOf(rule) && samePage(page.url(), loginPageOf(rule))) {
         throw new Error('Sent back to the login page. The sign-in was not accepted for this link.');
       }
       items.push(await shoot(page, uniqueName(t.base), t.url, signedIn));
     }
   } catch (err) {
-    const msg = err.message.split('\n')[0].slice(0, 200);
+    const msg = err.message.split('\n')[0].slice(0, 300);
     console.error(`  FAILED: ${msg}`);
     items.push({ name: uniqueName(t.base), url: t.url, ok: false, error: msg });
   } finally {
