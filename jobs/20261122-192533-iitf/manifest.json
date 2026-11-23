@@ -1,0 +1,28 @@
+{
+  "job": "20261122-192533-iitf",
+  "createdAt": "2026-11-22T19:26:31.629Z",
+  "width": 1440,
+  "scale": 2,
+  "fullPage": false,
+  "crawl": true,
+  "notes": [
+    "miftahulislam504-crypto.github.io: only 1 page was found (the first page had 0 links). Either the other pages need a sign-in, so add the site to SITE_LOGINS, or the menus work with buttons instead of links."
+  ],
+  "items": [
+    {
+      "name": "miftahulislam504-crypto-github-io-ez-menu-login",
+      "url": "https://miftahulislam504-crypto.github.io/EZ_MENU/login",
+      "ok": true,
+      "file": "miftahulislam504-crypto-github-io-ez-menu-login.png",
+      "bytes": 118336,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "miftahulislam504-crypto-github-io-ez-menu-login-2",
+      "url": "https://miftahulislam504-crypto.github.io/EZ_MENU/login",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 15000ms exceeded."
+    }
+  ]
+}

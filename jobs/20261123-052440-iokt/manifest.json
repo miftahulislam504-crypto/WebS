@@ -1,0 +1,16 @@
+{
+  "job": "20261123-052440-iokt",
+  "createdAt": "2026-11-23T05:25:41.334Z",
+  "width": 1440,
+  "scale": 2,
+  "fullPage": false,
+  "crawl": true,
+  "items": [
+    {
+      "name": "miftahulislam504-crypto-github-io-ez-menu",
+      "url": "https://miftahulislam504-crypto.github.io/EZ_MENU",
+      "ok": false,
+      "error": "Login form not found. Opened: miftahulislam504-crypto.github.io/EZ_MENU (HTTP 200), miftahulislam504-crypto.github.io/EZ_MENU/ (HTTP 200). Check loginUrl: web addresses on GitHub Pages are case-sensitive."
+    }
+  ]
+}

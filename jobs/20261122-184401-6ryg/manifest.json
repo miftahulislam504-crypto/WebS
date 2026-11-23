@@ -1,0 +1,103 @@
+{
+  "job": "20261122-184401-6ryg",
+  "createdAt": "2026-11-22T18:45:28.826Z",
+  "width": 1440,
+  "scale": 2,
+  "fullPage": false,
+  "crawl": true,
+  "notes": [
+    "melvora-bd.miftahulislam504.workers.dev: captured 10 pages, 19 more were found. Raise the limit to get them."
+  ],
+  "items": [
+    {
+      "name": "melvora-bd-miftahulislam504-workers-dev",
+      "url": "https://melvora-bd.miftahulislam504.workers.dev/",
+      "ok": true,
+      "file": "melvora-bd-miftahulislam504-workers-dev.png",
+      "bytes": 1341195,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "melvora-bd-miftahulislam504-workers-dev-track",
+      "url": "https://melvora-bd.miftahulislam504.workers.dev/track",
+      "ok": true,
+      "file": "melvora-bd-miftahulislam504-workers-dev-track.png",
+      "bytes": 191349,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "melvora-bd-miftahulislam504-workers-dev-contact",
+      "url": "https://melvora-bd.miftahulislam504.workers.dev/contact",
+      "ok": true,
+      "file": "melvora-bd-miftahulislam504-workers-dev-contact.png",
+      "bytes": 183361,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "melvora-bd-miftahulislam504-workers-dev-account",
+      "url": "https://melvora-bd.miftahulislam504.workers.dev/account",
+      "ok": true,
+      "file": "melvora-bd-miftahulislam504-workers-dev-account.png",
+      "bytes": 192635,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "melvora-bd-miftahulislam504-workers-dev-cart",
+      "url": "https://melvora-bd.miftahulislam504.workers.dev/cart",
+      "ok": true,
+      "file": "melvora-bd-miftahulislam504-workers-dev-cart.png",
+      "bytes": 193994,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "melvora-bd-miftahulislam504-workers-dev-deals",
+      "url": "https://melvora-bd.miftahulislam504.workers.dev/deals",
+      "ok": true,
+      "file": "melvora-bd-miftahulislam504-workers-dev-deals.png",
+      "bytes": 2134483,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "melvora-bd-miftahulislam504-workers-dev-shop",
+      "url": "https://melvora-bd.miftahulislam504.workers.dev/shop",
+      "ok": true,
+      "file": "melvora-bd-miftahulislam504-workers-dev-shop.png",
+      "bytes": 1524030,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "melvora-bd-miftahulislam504-workers-dev-about",
+      "url": "https://melvora-bd.miftahulislam504.workers.dev/about",
+      "ok": true,
+      "file": "melvora-bd-miftahulislam504-workers-dev-about.png",
+      "bytes": 218335,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "melvora-bd-miftahulislam504-workers-dev-categories",
+      "url": "https://melvora-bd.miftahulislam504.workers.dev/categories",
+      "ok": true,
+      "file": "melvora-bd-miftahulislam504-workers-dev-categories.png",
+      "bytes": 247480,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "melvora-bd-miftahulislam504-workers-dev-delivery",
+      "url": "https://melvora-bd.miftahulislam504.workers.dev/delivery",
+      "ok": true,
+      "file": "melvora-bd-miftahulislam504-workers-dev-delivery.png",
+      "bytes": 189841,
+      "width": 2880,
+      "height": 1800
+    }
+  ]
+}

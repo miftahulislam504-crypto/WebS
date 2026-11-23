@@ -1,0 +1,19 @@
+{
+  "job": "20261122-181955-hov1",
+  "createdAt": "2026-11-22T18:20:31.605Z",
+  "width": 1440,
+  "scale": 2,
+  "fullPage": false,
+  "crawl": true,
+  "items": [
+    {
+      "name": "miftahulislam504-crypto-github-io-ez-menu-login",
+      "url": "https://miftahulislam504-crypto.github.io/EZ_MENU/login",
+      "ok": true,
+      "file": "miftahulislam504-crypto-github-io-ez-menu-login.png",
+      "bytes": 118336,
+      "width": 2880,
+      "height": 1800
+    }
+  ]
+}

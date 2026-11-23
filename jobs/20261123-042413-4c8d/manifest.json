@@ -1,0 +1,16 @@
+{
+  "job": "20261123-042413-4c8d",
+  "createdAt": "2026-11-23T04:25:22.914Z",
+  "width": 1440,
+  "scale": 2,
+  "fullPage": false,
+  "crawl": true,
+  "items": [
+    {
+      "name": "miftahulislam504-crypto-github-io-ez-pos",
+      "url": "https://miftahulislam504-crypto.github.io/EZ_POS",
+      "ok": false,
+      "error": "Login form not found. Opened: miftahulislam504-crypto.github.io/EZ_POS (HTTP 200), miftahulislam504-crypto.github.io/EZ_POS/ (HTTP 200). Check loginUrl: web addresses on GitHub Pages are case-sensitive."
+    }
+  ]
+}

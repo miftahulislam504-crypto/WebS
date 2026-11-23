@@ -1,0 +1,16 @@
+{
+  "job": "20261122-185440-xlzs",
+  "createdAt": "2026-11-22T18:55:36.675Z",
+  "width": 1440,
+  "scale": 2,
+  "fullPage": false,
+  "crawl": true,
+  "items": [
+    {
+      "name": "miftahulislam504-crypto-github-io-ez-menu",
+      "url": "https://miftahulislam504-crypto.github.io/EZ_MENU",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 15000ms exceeded."
+    }
+  ]
+}

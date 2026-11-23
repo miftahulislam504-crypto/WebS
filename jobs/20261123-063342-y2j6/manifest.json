@@ -1,0 +1,47 @@
+{
+  "job": "20261123-063342-y2j6",
+  "createdAt": "2026-11-23T06:35:21.669Z",
+  "width": 1440,
+  "scale": 2,
+  "fullPage": false,
+  "crawl": true,
+  "version": "3",
+  "items": [
+    {
+      "name": "debug-login-1",
+      "url": "https://miftahulislam504-crypto.github.io/EZ_MENU/login",
+      "ok": true,
+      "debug": "Looked for the sign-in form here: miftahulislam504-crypto.github.io/EZ_MENU",
+      "file": "debug-login-1.png",
+      "bytes": 118336,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "debug-login-2",
+      "url": "https://miftahulislam504-crypto.github.io/EZ_MENU/login",
+      "ok": true,
+      "debug": "Looked for the sign-in form here: miftahulislam504-crypto.github.io/EZ_MENU/",
+      "file": "debug-login-2.png",
+      "bytes": 118336,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "debug-login-3",
+      "url": "https://miftahulislam504-crypto.github.io/EZ_MENU/login",
+      "ok": true,
+      "debug": "Looked for the sign-in form here: miftahulislam504-crypto.github.io/EZ_MENU/login",
+      "file": "debug-login-3.png",
+      "bytes": 118336,
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "name": "miftahulislam504-crypto-github-io-ez-menu",
+      "url": "https://miftahulislam504-crypto.github.io/EZ_MENU",
+      "ok": false,
+      "error": "Login form not found on 8 addresses (miftahulislam504-crypto.github.io/EZ_MENU (HTTP 200), miftahulislam504-crypto.github.io/EZ_MENU/ (HTTP 200), miftahulislam504-crypto.github.io/EZ_MENU/login (HTTP 200)). Add \"loginUrl\" with the exact address of the sign-in page."
+    }
+  ]
+}
