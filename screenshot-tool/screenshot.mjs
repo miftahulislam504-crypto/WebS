@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const TOOL_VERSION = '3';
+const TOOL_VERSION = '4';
 const WIDTH = Number(process.env.WIDTH || 1440);
 const HEIGHT = Math.round((WIDTH * 10) / 16); // 16:10 desktop screen
 const SCALE = Number(process.env.SCALE || 1);
@@ -141,70 +141,162 @@ async function debugShot(page, label) {
 }
 
 const LOGIN_LABEL = /^\s*(sign ?in|log ?in|login|লগ ?ইন|সাইন ইন)\s*[→›>»]?\s*$/i;
+const LOGIN_LIKE =
+  /^(?!.*(google|facebook|apple|github|with |using ))(.*\b)?(sign ?in|log ?in|login|get started|open (the )?app|launch|dashboard|লগ ?ইন|সাইন ইন)\b/i;
 // common places for a sign-in page, tried after the addresses we were given
 const LOGIN_PATHS = ['/login', '/signin', '/sign-in', '/auth/login', '/admin/login', '/#/login'];
 
-const waitForPassword = (page, sel, timeout) =>
-  page
-    .locator(sel)
-    .first()
-    .waitFor({ state: 'visible', timeout })
-    .then(() => true)
-    .catch(() => false);
+// ---- finding the sign-in fields -------------------------------------------------------
+// Sites mark their fields in many ways, so the usual ones are tried one after another.
+const NOT_TEXT = ['checkbox', 'radio', 'hidden', 'submit', 'button', 'file', 'image', 'reset', 'range', 'color'];
+const TEXT_LIKE = `input${NOT_TEXT.map((t) => `:not([type="${t}"])`).join('')}`;
+const PASS_WORD = /pass(word|code)?|পাসওয়ার্ড/i;
+const USER_WORD = /e-?mail|user ?name|user|login|phone|mobile|account|ইমেইল|ফোন|মোবাইল/i;
+
+async function findPasswordField(page, c, timeout) {
+  const lists = () =>
+    c.passSelector
+      ? [page.locator(c.passSelector)]
+      : [
+          page.locator(DEFAULT_PASS),
+          page.locator('input[autocomplete="current-password"]:visible, input[autocomplete="new-password"]:visible'),
+          page.getByLabel(PASS_WORD).and(page.locator('input')),
+          page.getByPlaceholder(PASS_WORD).and(page.locator('input')),
+          page.locator('input[name*="pass" i]:visible, input[id*="pass" i]:visible'),
+        ];
+  const deadline = Date.now() + timeout;
+  do {
+    for (const loc of lists()) {
+      const first = loc.first();
+      if (await first.isVisible().catch(() => false)) return first;
+    }
+    if (!c.passSelector) {
+      // last resort: a page with exactly two fields and a "Sign in" button is a sign-in form
+      const all = page.locator(`${TEXT_LIKE}:visible`);
+      if ((await all.count().catch(() => 0)) === 2) {
+        const hasButton = await page
+          .getByRole('button', { name: /sign ?in|log ?in|login|লগ ?ইন|সাইন ইন/i })
+          .count()
+          .catch(() => 0);
+        if (hasButton) return all.nth(1);
+      }
+    }
+    if (Date.now() < deadline) await page.waitForTimeout(300);
+  } while (Date.now() < deadline);
+  return null;
+}
+
+async function findUserField(page, c, pass) {
+  const lists = c.userSelector
+    ? [page.locator(c.userSelector)]
+    : [
+        page.locator(DEFAULT_USER),
+        page.getByLabel(USER_WORD).and(page.locator('input')),
+        page.getByPlaceholder(USER_WORD).and(page.locator('input')),
+      ];
+  for (const loc of lists) {
+    const first = loc.first();
+    if (await first.isVisible().catch(() => false)) return first;
+  }
+  if (c.userSelector) return null;
+  // the text field that comes right before the password field
+  const handle = await pass.elementHandle().catch(() => null);
+  if (!handle) return null;
+  const prev = await page.evaluateHandle(
+    (el, skip) => {
+      const all = [...document.querySelectorAll('input')].filter(
+        (i) => !skip.includes(i.type) && i.getClientRects().length > 0
+      );
+      const idx = all.indexOf(el);
+      return idx > 0 ? all[idx - 1] : null;
+    },
+    handle,
+    NOT_TEXT
+  );
+  return prev.asElement();
+}
+
+// what fields a page has (no values), to explain a failed sign-in
+async function describeInputs(page) {
+  try {
+    return await page.evaluate(() =>
+      [...document.querySelectorAll('input,textarea')]
+        .filter((i) => i.getClientRects().length > 0 && !['hidden', 'checkbox', 'radio'].includes(i.type))
+        .slice(0, 5)
+        .map((i) =>
+          [
+            i.type || 'text',
+            i.name && `name=${i.name}`,
+            i.id && `id=${i.id}`,
+            i.placeholder && `placeholder=${i.placeholder.slice(0, 16)}`,
+            i.getAttribute('aria-label') && `aria=${i.getAttribute('aria-label').slice(0, 16)}`,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        )
+    );
+  } catch {
+    return [];
+  }
+}
 
 // landing pages often only have a "Sign in" link or button: follow it
-const LOGIN_LIKE =
-  /^(?!.*(google|facebook|apple|github|with |using ))(.*\b)?(sign ?in|log ?in|login|get started|open (the )?app|launch|dashboard|লগ ?ইন|সাইন ইন)\b/i;
-
-async function openLoginFromPage(page, passSel) {
+async function openLoginFromPage(page, c) {
+  // already looking at a form with fields: pressing its own Sign in button would not help
+  if ((await page.locator(`${TEXT_LIKE}:visible`).count().catch(() => 0)) >= 2) return null;
   for (const name of [LOGIN_LABEL, LOGIN_LIKE]) {
     for (const role of ['link', 'button']) {
       const el = page.getByRole(role, { name }).first();
       if (await el.count()) {
         await el.click({ timeout: 5000 }).catch(() => {});
-        if (await waitForPassword(page, passSel, 8000)) return true;
+        const pass = await findPasswordField(page, c, 8000);
+        if (pass) return pass;
       }
     }
   }
-  return false;
+  return null;
 }
 
 // Opens the login page, fills the form and submits. Returns the address where the form was found.
-// The password field is the anchor: every sign-in form has one.
 async function doLogin(page, c, fallbackUrls = []) {
-  const passSel = c.passSelector || DEFAULT_PASS;
   const candidates = [c.loginUrl, ...fallbackUrls].filter((u, i, a) => u && a.indexOf(u) === i);
   const tried = [];
   let loginPage = '';
+  let pass = null;
 
   for (const [idx, u] of candidates.entries()) {
-    const res = await page.goto(u, { waitUntil: 'load', timeout: 45000 }).catch(() => null);
+    const res = await gotoSpa(page, u, { waitUntil: 'load', timeout: 45000 }).catch(() => null);
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     // the first addresses get more time: single-page apps need a moment to draw the form
-    let found = await waitForPassword(page, passSel, idx < 2 ? 12000 : 6000);
-    if (!found && res && res.status() < 400) found = await openLoginFromPage(page, passSel);
-    if (found) {
+    pass = await findPasswordField(page, c, idx < 2 ? 12000 : 6000);
+    if (!pass && res && res.status() < 400) pass = await openLoginFromPage(page, c);
+    if (pass) {
       loginPage = page.url();
       break;
     }
-    tried.push({ text: `${shortUrl(u)} (${res ? 'HTTP ' + res.status() : 'could not be opened'})`, status: res ? res.status() : 0 });
+    tried.push({
+      text: `${shortUrl(u)} (${res ? 'HTTP ' + res.status() : 'could not be opened'})`,
+      status: res ? res.status() : 0,
+      fields: await describeInputs(page),
+    });
     if (tried.length <= 3) await debugShot(page, `Looked for the sign-in form here: ${shortUrl(u)}`);
   }
-  if (!loginPage) {
+  if (!pass) {
     const shown = tried.slice(0, 3).map((t) => t.text).join(', ');
+    const withFields = tried.find((t) => t.fields.length);
     throw new Error(
-      `Login form not found on ${tried.length} addresses (${shown}). Add "loginUrl" with the exact address of the sign-in page.` +
+      `Password field not found on ${tried.length} addresses (${shown}).` +
+        (withFields
+          ? ` Fields seen at ${withFields.text}: ${withFields.fields.map((f) => `[${f}]`).join(' ')}. Add "passSelector" and "userSelector" for these fields.`
+          : ' No input fields were visible on those pages. Add "loginUrl" with the exact address of the sign-in page.') +
         (tried.some((t) => t.status === 404) ? ' Addresses on GitHub Pages are case-sensitive.' : '')
     );
   }
 
-  const user = page.locator(c.userSelector || DEFAULT_USER).first();
-  const pass = page.locator(passSel).first();
-  try {
-    await user.waitFor({ state: 'visible', timeout: 10000 });
-  } catch {
+  const user = await findUserField(page, c, pass);
+  if (!user) {
     throw new Error(
-      'The login form was found but the username field was not recognised. Add "userSelector" to the login settings.'
+      'The password field was found but the username field was not recognised. Add "userSelector" to the login settings.'
     );
   }
   await user.fill(c.username);
@@ -223,7 +315,7 @@ async function doLogin(page, c, fallbackUrls = []) {
   // the login form should go away once we are signed in
   await pass.waitFor({ state: 'hidden', timeout: 20000 }).catch(() => {});
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-  const stillThere = await page.locator(passSel).first().isVisible().catch(() => false);
+  const stillThere = await findPasswordField(page, c, 1500);
   if (stillThere) {
     await debugShot(page, 'The page right after pressing Sign in');
     throw new Error(
@@ -313,7 +405,7 @@ async function autoScroll(page) {
 
 // Open a page and wait until it looks finished. Returns the HTTP status (0 if unknown).
 async function visit(page, url) {
-  const res = await page.goto(url, { waitUntil: 'load', timeout: 45000 });
+  const res = await gotoSpa(page, url, { waitUntil: 'load', timeout: 45000 });
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   if (FULL_PAGE) await autoScroll(page);
   await page.waitForTimeout(WAIT_MS);
@@ -340,33 +432,28 @@ async function shoot(page, name, url, signedIn) {
 
 // GitHub Pages has no "always serve index.html" setting, so deep links of single-page apps
 // answer 404 for real visitors too, unless the app ships a 404.html trick. Do what a proper
-// SPA host does: when an app route answers 404, serve the app's own index page instead.
-async function addSpaFallback(context, host) {
-  const roots = new Map();
-  await context.route(
-    (u) => u.hostname.toLowerCase() === host,
-    async (route) => {
-      const req = route.request();
-      if (req.resourceType() !== 'document' || !req.isNavigationRequest()) return route.continue();
-      try {
-        const u = new URL(req.url());
-        const first = u.pathname.split('/').filter(Boolean)[0];
-        if (!first) return route.continue();
-        const resp = await route.fetch();
-        if (resp.status() !== 404) return route.fulfill({ response: resp });
-        const rootUrl = `${u.origin}/${first}/`;
-        if (!roots.has(rootUrl)) {
-          const r = await context.request.get(rootUrl).catch(() => null);
-          roots.set(rootUrl, r && r.ok() ? await r.text() : '');
-        }
-        const html = roots.get(rootUrl);
-        if (!html) return route.fulfill({ response: resp });
-        return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html });
-      } catch {
-        return route.continue();
-      }
-    }
+// SPA host does: when an app route answers 404, load it again with the app's own index page.
+// Only that one address is touched, so redirects and form submissions behave normally.
+const spaRoots = new Map();
+async function gotoSpa(page, url, options) {
+  const res = await page.goto(url, options);
+  const u = new URL(url);
+  if (!res || res.status() !== 404 || !isGhPages(u.hostname.toLowerCase())) return res;
+  const first = u.pathname.split('/').filter(Boolean)[0];
+  if (!first) return res;
+  const rootUrl = `${u.origin}/${first}/`;
+  if (!spaRoots.has(rootUrl)) {
+    const r = await page.context().request.get(rootUrl).catch(() => null);
+    spaRoots.set(rootUrl, r && r.ok() ? await r.text() : '');
+  }
+  const html = spaRoots.get(rootUrl);
+  if (!html) return res;
+  await page.route(
+    (x) => x.href === u.href,
+    (route) => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html }),
+    { times: 1 }
   );
+  return page.goto(url, options);
 }
 
 // ---- crawl helpers ------------------------------------------------------------
@@ -459,7 +546,7 @@ async function ensureSignedIn(page, context, rule, fallbackUrls = []) {
     try {
       rule.loginPage = await doLogin(page, rule.cfg, fallbackUrls);
     } catch (e) {
-      failedLogins.set(rule.key, e.message.split('\n')[0].slice(0, 300));
+      failedLogins.set(rule.key, e.message.split('\n')[0].slice(0, 600));
       throw e;
     }
     sessions.set(rule.key, await context.storageState());
@@ -585,7 +672,7 @@ async function crawl(page, context, t, host, rule) {
       }
     } catch (err) {
       fails++;
-      const msg = err.message.split('\n')[0].slice(0, 300);
+      const msg = err.message.split('\n')[0].slice(0, 600);
       console.error(`  FAILED: ${msg}`);
       items.push({ name: uniqueName(slugify(host + new URL(url).pathname)), url, ok: false, error: msg });
     }
@@ -658,7 +745,6 @@ for (const t of targets) {
     hasTouch: false,
     storageState: rule ? sessions.get(rule.key) : undefined,
   });
-  if (isGhPages(host)) await addSpaFallback(context, host);
   const page = await context.newPage();
 
   try {
@@ -693,7 +779,7 @@ for (const t of targets) {
       items.push(await shoot(page, uniqueName(t.base), t.url, signedIn));
     }
   } catch (err) {
-    const msg = err.message.split('\n')[0].slice(0, 300);
+    const msg = err.message.split('\n')[0].slice(0, 600);
     console.error(`  FAILED: ${msg}`);
     items.push({ name: uniqueName(t.base), url: t.url, ok: false, error: msg });
   } finally {
