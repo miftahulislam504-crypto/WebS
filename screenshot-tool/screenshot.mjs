@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 
+const TOOL_VERSION = '3';
 const WIDTH = Number(process.env.WIDTH || 1440);
 const HEIGHT = Math.round((WIDTH * 10) / 16); // 16:10 desktop screen
 const SCALE = Number(process.env.SCALE || 1);
@@ -115,6 +116,59 @@ const shortUrl = (u) => {
   }
 };
 
+// A picture of what the tool sees, saved with the results so a failed sign-in can be understood
+let debugCount = 0;
+async function debugShot(page, label) {
+  if (debugCount >= 4) return;
+  try {
+    debugCount++;
+    const buf = await page.screenshot({ animations: 'disabled' });
+    const name = uniqueName(`debug-login-${debugCount}`);
+    fs.writeFileSync(path.join(OUT_DIR, `${name}.png`), buf);
+    items.push({
+      name,
+      url: page.url(),
+      ok: true,
+      debug: label,
+      file: `${name}.png`,
+      bytes: buf.length,
+      width: buf.readUInt32BE(16),
+      height: buf.readUInt32BE(20),
+    });
+  } catch {
+    /* a missing debug picture must never break the run */
+  }
+}
+
+const LOGIN_LABEL = /^\s*(sign ?in|log ?in|login|লগ ?ইন|সাইন ইন)\s*[→›>»]?\s*$/i;
+// common places for a sign-in page, tried after the addresses we were given
+const LOGIN_PATHS = ['/login', '/signin', '/sign-in', '/auth/login', '/admin/login', '/#/login'];
+
+const waitForPassword = (page, sel, timeout) =>
+  page
+    .locator(sel)
+    .first()
+    .waitFor({ state: 'visible', timeout })
+    .then(() => true)
+    .catch(() => false);
+
+// landing pages often only have a "Sign in" link or button: follow it
+const LOGIN_LIKE =
+  /^(?!.*(google|facebook|apple|github|with |using ))(.*\b)?(sign ?in|log ?in|login|get started|open (the )?app|launch|dashboard|লগ ?ইন|সাইন ইন)\b/i;
+
+async function openLoginFromPage(page, passSel) {
+  for (const name of [LOGIN_LABEL, LOGIN_LIKE]) {
+    for (const role of ['link', 'button']) {
+      const el = page.getByRole(role, { name }).first();
+      if (await el.count()) {
+        await el.click({ timeout: 5000 }).catch(() => {});
+        if (await waitForPassword(page, passSel, 8000)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 // Opens the login page, fills the form and submits. Returns the address where the form was found.
 // The password field is the anchor: every sign-in form has one.
 async function doLogin(page, c, fallbackUrls = []) {
@@ -123,24 +177,24 @@ async function doLogin(page, c, fallbackUrls = []) {
   const tried = [];
   let loginPage = '';
 
-  for (const u of candidates) {
+  for (const [idx, u] of candidates.entries()) {
     const res = await page.goto(u, { waitUntil: 'load', timeout: 45000 }).catch(() => null);
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    const found = await page
-      .locator(passSel)
-      .first()
-      .waitFor({ state: 'visible', timeout: 12000 })
-      .then(() => true)
-      .catch(() => false);
+    // the first addresses get more time: single-page apps need a moment to draw the form
+    let found = await waitForPassword(page, passSel, idx < 2 ? 12000 : 6000);
+    if (!found && res && res.status() < 400) found = await openLoginFromPage(page, passSel);
     if (found) {
       loginPage = page.url();
       break;
     }
-    tried.push(`${shortUrl(u)} (${res ? 'HTTP ' + res.status() : 'could not be opened'})`);
+    tried.push({ text: `${shortUrl(u)} (${res ? 'HTTP ' + res.status() : 'could not be opened'})`, status: res ? res.status() : 0 });
+    if (tried.length <= 3) await debugShot(page, `Looked for the sign-in form here: ${shortUrl(u)}`);
   }
   if (!loginPage) {
+    const shown = tried.slice(0, 3).map((t) => t.text).join(', ');
     throw new Error(
-      `Login form not found. Opened: ${tried.join(', ')}. Check loginUrl: web addresses on GitHub Pages are case-sensitive.`
+      `Login form not found on ${tried.length} addresses (${shown}). Add "loginUrl" with the exact address of the sign-in page.` +
+        (tried.some((t) => t.status === 404) ? ' Addresses on GitHub Pages are case-sensitive.' : '')
     );
   }
 
@@ -171,6 +225,7 @@ async function doLogin(page, c, fallbackUrls = []) {
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   const stillThere = await page.locator(passSel).first().isVisible().catch(() => false);
   if (stillThere) {
+    await debugShot(page, 'The page right after pressing Sign in');
     throw new Error(
       'Login failed: the login form is still showing. Check the username, the password and the selectors.'
     );
@@ -281,6 +336,37 @@ async function shoot(page, name, url, signedIn) {
     height: buf.readUInt32BE(20),
     ...(signedIn ? { signedIn: true } : {}),
   };
+}
+
+// GitHub Pages has no "always serve index.html" setting, so deep links of single-page apps
+// answer 404 for real visitors too, unless the app ships a 404.html trick. Do what a proper
+// SPA host does: when an app route answers 404, serve the app's own index page instead.
+async function addSpaFallback(context, host) {
+  const roots = new Map();
+  await context.route(
+    (u) => u.hostname.toLowerCase() === host,
+    async (route) => {
+      const req = route.request();
+      if (req.resourceType() !== 'document' || !req.isNavigationRequest()) return route.continue();
+      try {
+        const u = new URL(req.url());
+        const first = u.pathname.split('/').filter(Boolean)[0];
+        if (!first) return route.continue();
+        const resp = await route.fetch();
+        if (resp.status() !== 404) return route.fulfill({ response: resp });
+        const rootUrl = `${u.origin}/${first}/`;
+        if (!roots.has(rootUrl)) {
+          const r = await context.request.get(rootUrl).catch(() => null);
+          roots.set(rootUrl, r && r.ok() ? await r.text() : '');
+        }
+        const html = roots.get(rootUrl);
+        if (!html) return route.fulfill({ response: resp });
+        return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html });
+      } catch {
+        return route.continue();
+      }
+    }
+  );
 }
 
 // ---- crawl helpers ------------------------------------------------------------
@@ -400,9 +486,13 @@ async function crawl(page, context, t, host, rule) {
   const seedUrl = norm(t.url, t.url) || t.url;
   // starting from the login page itself: capture it signed out, then sign in and go on
   const seedIsLogin = Boolean(login && login.loginUrl) && samePage(seedUrl, login.loginUrl);
-  const fallbacks = [seedUrl, `${origin}${scope}/`];
+  const fallbacks = [seedUrl, `${origin}${scope}/`, ...LOGIN_PATHS.map((x) => `${origin}${scope}${x}`)];
   let signedIn = false;
-  if (login && !seedIsLogin) signedIn = await ensureSignedIn(page, context, rule, fallbacks);
+  let landing = null; // the page the app shows right after signing in (often the dashboard)
+  if (login && !seedIsLogin) {
+    signedIn = await ensureSignedIn(page, context, rule, fallbacks);
+    landing = norm(page.url(), page.url());
+  }
 
   const seen = new Set([seedUrl]);
   const queue = [seedUrl];
@@ -434,11 +524,13 @@ async function crawl(page, context, t, host, rule) {
     queue.push(u);
   };
 
+  if (landing) enqueue(landing);
+
   let taken = 0;
   let fails = 0;
   let sitemapTried = false;
   let firstLinkCount = null;
-  const okCount = () => items.filter((i) => i.ok).length;
+  const okCount = () => items.filter((i) => i.ok && !i.debug).length;
   const ignoreStatus = isGhPages(host);
 
   while (queue.length && taken < MAX_PAGES && okCount() < TOTAL_CAP && fails < 5) {
@@ -485,10 +577,10 @@ async function crawl(page, context, t, host, rule) {
 
       if (seedIsLogin && !signedIn && url === seedUrl) {
         signedIn = await ensureSignedIn(page, context, rule, fallbacks);
-        const landing = norm(page.url(), page.url());
-        if (landing && !seen.has(landing) && accept(landing)) {
-          seen.add(landing);
-          queue.unshift(landing);
+        const after = norm(page.url(), page.url());
+        if (after && !seen.has(after) && accept(after)) {
+          seen.add(after);
+          queue.unshift(after);
         }
       }
     } catch (err) {
@@ -543,7 +635,7 @@ for (const t of targets) {
   const host = new URL(t.url).hostname.toLowerCase();
   const rule = findLogin(t.url);
 
-  if (items.filter((i) => i.ok).length >= TOTAL_CAP) {
+  if (items.filter((i) => i.ok && !i.debug).length >= TOTAL_CAP) {
     items.push({
       name: uniqueName(t.base),
       url: t.url,
@@ -566,6 +658,7 @@ for (const t of targets) {
     hasTouch: false,
     storageState: rule ? sessions.get(rule.key) : undefined,
   });
+  if (isGhPages(host)) await addSpaFallback(context, host);
   const page = await context.newPage();
 
   try {
@@ -584,7 +677,12 @@ for (const t of targets) {
         if (!isLoginPage) {
           const sUrls = new URL(t.url).pathname.split('/').filter(Boolean);
           const sScope = rule.path ? '/' + sUrls.slice(0, rule.path.split('/').filter(Boolean).length).join('/') : '';
-          signedIn = await ensureSignedIn(page, context, rule, [t.url, `${new URL(t.url).origin}${sScope}/`]);
+          const sOrigin = new URL(t.url).origin;
+          signedIn = await ensureSignedIn(page, context, rule, [
+            t.url,
+            `${sOrigin}${sScope}/`,
+            ...LOGIN_PATHS.map((x) => `${sOrigin}${sScope}${x}`),
+          ]);
         }
       }
       const status = await visit(page, t.url);
@@ -615,6 +713,7 @@ fs.writeFileSync(
       scale: SCALE,
       fullPage: FULL_PAGE,
       crawl: CRAWL,
+      version: TOOL_VERSION,
       ...(warning ? { warning } : {}),
       ...(notes.length ? { notes } : {}),
       items,
@@ -624,4 +723,5 @@ fs.writeFileSync(
   )
 );
 
-console.log(`\nDone: ${items.filter((i) => i.ok).length} of ${items.length} captured.`);
+const realItems = items.filter((i) => !i.debug);
+console.log(`\nDone: ${realItems.filter((i) => i.ok).length} of ${realItems.length} captured.`);

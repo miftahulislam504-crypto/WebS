@@ -486,11 +486,12 @@ dialog img { display: block; width: 100%; max-width: 1920px; margin: 0 auto; }
   function renderResults(job, manifest, items) {
     shown = items;
     shownJob = job;
-    const okCount = items.filter((i) => i.ok).length;
+    const real = items.filter((i) => !i.debug);
+    const okCount = real.filter((i) => i.ok).length;
     $('#resultsTitle').textContent =
-      okCount === items.length
+      okCount === real.length
         ? `${okCount} image${okCount === 1 ? '' : 's'}`
-        : `${okCount} of ${items.length} captured`;
+        : `${okCount} of ${real.length} captured`;
     $('#zipAll').hidden = okCount < 2;
 
     const box = $('#shots');
@@ -511,7 +512,7 @@ dialog img { display: block; width: 100%; max-width: 1920px; margin: 0 auto; }
         const details = `${it.width} × ${it.height}  ·  ${fmtBytes(it.bytes)}${it.signedIn ? '  ·  signed in' : ''}`;
         fig.append(
           thumb,
-          el('div', { class: 'cap' }, el('div', { class: 't' }, el('div', { class: 'n', text: it.file }), el('div', { class: 'm', text: shortUrl(it.url) }), el('div', { class: 'm', text: details })), dl)
+          el('div', { class: 'cap' }, el('div', { class: 't' }, el('div', { class: 'n', text: it.file }), el('div', { class: 'm', text: it.debug ? it.debug : shortUrl(it.url) }), el('div', { class: 'm', text: details })), dl)
         );
       } else {
         fig.append(
@@ -555,11 +556,11 @@ dialog img { display: block; width: 100%; max-width: 1920px; margin: 0 auto; }
       };
       const total = todo.length;
       await Promise.all(Array.from({ length: Math.min(6, total) }, worker));
-      const ok = items.filter((i) => i.ok).length;
+      const ok = items.filter((i) => i.ok && !i.debug).length;
       setStatus(ok ? 'Done' : 'Nothing was captured', {
         done: ok > 0,
         error: ok === 0,
-        sub: [jobLabel(job), manifest.warning, ...(manifest.notes || [])].filter(Boolean).join('. '),
+        sub: [jobLabel(job), manifest.warning, ...(manifest.notes || []), manifest.version ? 'Tool version ' + manifest.version : 'Old version of screenshot.mjs, please update it'].filter(Boolean).join('. '),
       });
       renderResults(job, manifest, items);
       return true;
